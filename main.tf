@@ -10,7 +10,6 @@ resource "aws_security_group" "this" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    # cidr_blocks = ["148.63.177.72/32"]
     cidr_blocks = ["0.0.0.0/0"]
   }
 
