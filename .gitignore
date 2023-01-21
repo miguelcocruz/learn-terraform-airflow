@@ -2,3 +2,8 @@
 *.tfstate
 *.tfstate.backup
 .infracost
+.env
+venv
+*.md
+*.pem
+__pycache__

@@ -10,7 +10,7 @@ resource "aws_security_group" "this" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.ip_address]
   }
 
   egress {
@@ -18,6 +18,13 @@ resource "aws_security_group" "this" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port = 8080
+    to_port = 8080
+    protocol = "tcp"
+    cidr_blocks = [var.ip_address]
   }
 }
 
@@ -36,12 +43,16 @@ resource "aws_key_pair" "this" {
 
 resource "aws_instance" "this" {
   ami           = "ami-0ff39345bd62c82a5"
-  instance_type = "t2.micro"
+  instance_type = "t2.large"
 
   # You can use a key pair to securely connect to your instance.
   # Ensure that you have access to the selected key pair before you launch the instance.
   key_name        = aws_key_pair.this.key_name
   security_groups = [aws_security_group.this.name]
+
+  
+  iam_instance_profile = aws_iam_instance_profile.example.name
+
 
   tags = {
     Name = "hello world"
@@ -73,6 +84,12 @@ resource "aws_instance" "this" {
 
     sudo apt-get -y install docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
+    git clone https://github.com/miguelcocruz/learn-terraform-airflow.git
+
+    #cd learn-terraform-airflow
+
+    #sudo docker compose up -d
+
   EOT
 }
 
@@ -91,4 +108,61 @@ resource "local_file" "this" {
   # To avoid Error: Unprotected private key file
   # Your private key file must be protected from read and write operations from any other users
   file_permission = "0400"
+}
+
+
+
+
+
+
+
+# IAM Policies
+
+
+# "Assume role policy" which is an IAM Policy that defines who can assume a given IAM role
+# 1. Define who can assume a given IAM Role
+data "aws_iam_policy_document" "assume_role" {
+  statement {
+    effect = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+# 2. Define IAM role (and attach the assume role policy)
+resource "aws_iam_role" "instance" {
+  name_prefix = "CustomS3Role3"
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+}
+
+# 3. Define permissions
+data "aws_iam_policy_document" "s3_admin_permissions" {
+  statement {
+    effect = "Allow"
+    actions = ["s3:*"]
+    resources = ["*"]
+  }
+}
+
+# 4. Attach permissions to IAM role
+resource "aws_iam_role_policy" "example" {
+  role = aws_iam_role.instance.id
+  policy = data.aws_iam_policy_document.s3_admin_permissions.json
+}
+
+resource "aws_iam_instance_profile" "example" {
+  role = aws_iam_role.instance.name
+}
+
+
+
+# S3 bucket
+
+resource "aws_s3_bucket" "this" {
+  bucket = "mglvlm-20230121"
+  force_destroy = true
 }
